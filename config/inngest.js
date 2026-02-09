@@ -18,11 +18,12 @@ export const syncUserCreation = inngest.createFunction(
             email: email_addresses[0].email_address,
             name: first_name + ' ' + last_name,
             imageUrl: image_url
-        }
+        };
         await step.run("connect-and-save-user", async () => {
-            await connectDB();
-            return await User.create(userData);
-        });
+    await connectDB();
+    const user = await User.create(userData);
+    return JSON.parse(JSON.stringify(user)); // Convert to plain object
+});
     }
 )
 
@@ -41,10 +42,11 @@ export const syncUserUpdation = inngest.createFunction(
             name: first_name + ' ' + last_name,
             imageUrl: image_url
         }
-        await step.run("update-user-db", async () => {
-            await connectDB();
-            return await User.findByIdAndUpdate(id, userData);
-        });
+       await step.run("update-user-db", async () => {
+    await connectDB();
+    // .lean() makes Mongoose return a plain JS object instead of a heavy Document
+    return await User.findByIdAndUpdate(id, userData).lean(); 
+});
     }
 )
 
@@ -58,8 +60,9 @@ export const syncUserDeletion = inngest.createFunction(
         const { id } = event.data
 
         await step.run("delete-user-db", async () => {
-            await connectDB();
-            return await User.findByIdAndDelete(id);
-        });
+    await connectDB();
+    await User.findByIdAndDelete(id);
+    return { success: true }; // Just return a simple confirmation
+});
     }
 )
