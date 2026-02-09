@@ -16,9 +16,13 @@ async function connectDB() {
             bufferCommands: false
         }
 
-        cached.promise = mongoose.connect(`${process.env.MONGODB_URI}/quickcart`, opts).then(mongoose => {
-            return mongoose
-        })
+        
+const uri = process.env.MONGODB_URI.endsWith('/') 
+            ? `${process.env.MONGODB_URI}quickcart` 
+            : `${process.env.MONGODB_URI}/quickcart`;
+
+cached.promise = mongoose.connect(uri, opts).then(mongoose => mongoose);
+
     }
 
      try {
