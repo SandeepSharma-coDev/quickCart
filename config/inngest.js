@@ -19,8 +19,10 @@ export const syncUserCreation = inngest.createFunction(
             name: first_name + ' ' + last_name,
             imageUrl: image_url
         }
-        await connectDB()
-        await User.create(userData)
+        await step.run("connect-and-save-user", async () => {
+            await connectDB();
+            return await User.create(userData);
+        });
     }
 )
 
@@ -39,8 +41,10 @@ export const syncUserUpdation = inngest.createFunction(
             name: first_name + ' ' + last_name,
             imageUrl: image_url
         }
-        await connectDB()
-        await User.findByIdAndUpdate(id, userData)
+        await step.run("update-user-db", async () => {
+            await connectDB();
+            return await User.findByIdAndUpdate(id, userData);
+        });
     }
 )
 
@@ -53,7 +57,9 @@ export const syncUserDeletion = inngest.createFunction(
     async ({ event }) => {
         const { id } = event.data
 
-        await connectDB()
-        await User.findByIdAndDelete(id)
+        await step.run("delete-user-db", async () => {
+            await connectDB();
+            return await User.findByIdAndDelete(id);
+        });
     }
 )
