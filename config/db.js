@@ -21,7 +21,12 @@ async function connectDB() {
         })
     }
 
-    cached.conn = await cached.promise
+     try {
+        cached.conn = await cached.promise
+    } catch (e) {
+        cached.promise = null // Clear promise on error so we can retry
+        throw e
+    }
     return cached.conn
 }
 
