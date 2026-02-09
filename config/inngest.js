@@ -2,67 +2,66 @@ import { Inngest } from "inngest";
 import connectDB from "./db";
 import User from "@/models/User";
 
-// Create a client to send and receive events
 export const inngest = new Inngest({ id: "quickcart-next" });
 
-// Inngest function to save user data to a database
+// Helper to make sure we only return plain JSON to Inngest
+const clean = (data) => (data ? JSON.parse(JSON.stringify(data)) : null);
+
 export const syncUserCreation = inngest.createFunction(
-    {
-        id: 'sync-user-from-clerk'
-    },
+    { id: 'sync-user-from-clerk' },
     { event: 'clerk/user.created' },
-    async ({ event, step }) => {
-        const { id, first_name, last_name, email_addresses, image_url } = event.data
+    async (ctx) => { // Use 'ctx' instead of destructuring to prevent ReferenceErrors
+        const { event, step } = ctx;
+        const { id, first_name, last_name, email_addresses, image_url } = event.data;
+        
         const userData = {
             _id: id,
             email: email_addresses[0].email_address,
-            name: first_name + ' ' + last_name,
+            name: `${first_name} ${last_name}`,
             imageUrl: image_url
         };
-        await step.run("connect-and-save-user", async () => {
-    await connectDB();
-    const user = await User.create(userData);
-    return JSON.parse(JSON.stringify(user)); // Convert to plain object
-});
+
+        await step.run("save-user-to-db", async () => {
+            await connectDB();
+            const user = await User.create(userData);
+            return clean(user); // Critical: Return plain JSON only
+        });
     }
-)
+);
 
-
-// Inngest function to update user data in database
 export const syncUserUpdation = inngest.createFunction(
-    {
-        id: 'update-user-from-clerk'
-    },
+    { id: 'update-user-from-clerk' },
     { event: 'clerk/user.updated' },
-    async ({ event, step }) => {
-        const { id, first_name, last_name, email_addresses, image_url } = event.data
+    async (ctx) => {
+        const { event, step } = ctx;
+        const { id, first_name, last_name, email_addresses, image_url } = event.data;
+        
         const userData = {
             _id: id,
             email: email_addresses[0].email_address,
-            name: first_name + ' ' + last_name,
+            name: `${first_name} ${last_name}`,
             imageUrl: image_url
-        }
-       await step.run("update-user-db", async () => {
-    await connectDB();
-    // .lean() makes Mongoose return a plain JS object instead of a heavy Document
-    return await User.findByIdAndUpdate(id, userData).lean(); 
-});
-    }
-)
+        };
 
-// Inngest function to delete user from database
+        await step.run("update-user-db", async () => {
+            await connectDB();
+            const user = await User.findByIdAndUpdate(id, userData, { new: true }).lean();
+            return clean(user);
+        });
+    }
+);
+
 export const syncUserDeletion = inngest.createFunction(
-    {
-        id: 'delete-user-with-clerk'
-    },
+    { id: 'delete-user-with-clerk' },
     { event: 'clerk/user.deleted' },
-    async ({ event, step }) => {
-        const { id } = event.data
+    async (ctx) => {
+        const { event, step } = ctx;
+        const { id } = event.data;
 
         await step.run("delete-user-db", async () => {
-    await connectDB();
-    await User.findByIdAndDelete(id);
-    return { success: true }; // Just return a simple confirmation
-});
+            await connectDB();
+            await User.findByIdAndDelete(id).exec();
+            return { deleted: true, id }; // Return a simple object
+        });
     }
-)
+);
